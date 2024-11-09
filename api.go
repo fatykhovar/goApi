@@ -5,11 +5,17 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/gorilla/mux"
 )
 
 
+
+
+// type ApiError struct {
+// 	Error string `json:"error"`
+// }
 func WriteJSON(w http.ResponseWriter, status int, v any) error {
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(status)
@@ -26,10 +32,6 @@ func makeHTTPHandleFunc(f apiFunc) http.HandlerFunc {
 		}
 	}
 }
-
-// type ApiError struct {
-// 	Error string `json:"error"`
-// }
 
 
 type APIServer struct {
@@ -58,6 +60,8 @@ func (s *APIServer) handleAccount(w http.ResponseWriter, r *http.Request) error 
 		return s.handleGetAccount(w, r)
 	case "POST":
 		return s.handleNewAccount(w, r)
+	case "DELETE":
+		return s.handleDeleteAccount(w, r)
 	default:
 		return fmt.Errorf("method not allowed %s", r.Method)
 	}
@@ -66,14 +70,21 @@ func (s *APIServer) handleAccount(w http.ResponseWriter, r *http.Request) error 
 }
 
 func (s *APIServer) handleGetAccount(w http.ResponseWriter, r *http.Request) error {
-	if err := s.store.GetAccountByID(acc1); err != nil {
+	
+	id, err := getID(r)
+
+	if err != nil {
 		return err
 	}
-	// vars := mux.Vars(r)["id"]
-	// return WriteJSON(w, http.StatusOK, vars)
-	acc1 := NewAccount("Regina", "Fatykhova")
+
+	account, err := s.store.GetAccountByID(id)
 	
-	return WriteJSON(w, http.StatusOK, acc1)
+	if err != nil {
+		return err
+	}
+	log.Println("got account")
+	
+	return WriteJSON(w, http.StatusOK, account)
 }
 
 func (s *APIServer) handleNewAccount(w http.ResponseWriter, r *http.Request) error {
@@ -85,3 +96,26 @@ func (s *APIServer) handleNewAccount(w http.ResponseWriter, r *http.Request) err
 	return WriteJSON(w, http.StatusOK, acc1)
 }
 
+
+func (s *APIServer) handleDeleteAccount(w http.ResponseWriter, r *http.Request) error {
+	id, err := getID(r)
+
+	if err != nil {
+		return err
+	}
+	if err := s.store.DeleteAccount(id); err != nil {
+		return err
+	}
+	// log.Println("new account")
+	return WriteJSON(w, http.StatusOK, id)
+}
+
+func getID(r *http.Request) (int, error){
+	vars := mux.Vars(r)
+	category := vars["id"]
+	id, err := strconv.Atoi(category)
+	if err != nil {
+		return id, fmt.Errorf("invalid id given %s", category)
+	}
+	return id, nil
+}
